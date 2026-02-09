@@ -1,0 +1,6 @@
+streamlit
+neo4j
+pandas
+# openai
+python-dotenv
+ollama
