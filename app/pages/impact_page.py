@@ -25,7 +25,7 @@ if "impact_data" not in st.session_state or not st.session_state.get("impact_dat
 data = st.session_state["impact_data"]  # 🔥 list of impacted rows
 
 # ---------- SUMMARY HEADER ----------
-server_name = data[0]["server"]  # all rows share same server
+server_name = st.session_state.get("impact_server", "Unknown Server")
 
 st.error(f"⚠️ Fault detected on **{server_name}**")
 

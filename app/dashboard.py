@@ -4,21 +4,14 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import streamlit as st
-import pandas as pd
+from db.graph_queries import get_servers, get_impact
 import ai.genai_message as genai_message
 
 st.set_page_config(layout="wide")
 st.title("🚨 Business Impact Dashboard")
 
-# ---------- LOAD CSV ----------
-@st.cache_data
-def load_data():
-    return pd.read_csv("data/sample_5yr_data.csv")
-
-df = load_data()
-
-# Use ALL data
-servers = df["server"].unique()
+# ---------- LOAD SERVERS FROM NEO4J ----------
+servers = get_servers()
 
 # ---------- SESSION STATE ----------
 if "fault_server" not in st.session_state:
@@ -37,7 +30,7 @@ with st.sidebar:
         st.session_state.fault_server = selected
 
         try:
-            server_rows = df[df["server"] == selected]
+            impact_rows = get_impact(selected)
 
             impacts = [
                 {
@@ -45,7 +38,7 @@ with st.sidebar:
                     "process": row["process"],
                     "service": row["service"],
                 }
-                for _, row in server_rows.iterrows()
+                for row in impact_rows
             ]
 
             ai_message = genai_message.generate_message(selected, impacts)
@@ -118,17 +111,22 @@ for idx in range(0, len(servers_list), 3):
 if st.session_state.show_details:
 
     selected_server = st.session_state.show_details
-    server_rows = df[df["server"] == selected_server]
+
+    # 🔥 ALWAYS fetch impact first
+    impact_rows = get_impact(selected_server)
+
+    # Safety check
+    if not impact_rows:
+        st.warning("No impact data found.")
+        st.stop()
 
     st.divider()
     st.markdown(f"### ⚠️ Impact Details — {selected_server}")
 
-    rows = server_rows.to_dict(orient="records")
+    # Show 3 cards per row
+    for idx in range(0, len(impact_rows), 3):
 
-    # Show 3 impact cards per row
-    for idx in range(0, len(rows), 3):
-
-        row_cards = rows[idx:idx + 3]
+        row_cards = impact_rows[idx:idx + 3]
         cols_impact = st.columns(3)
 
         for col, item in zip(cols_impact, row_cards):
@@ -153,5 +151,7 @@ if st.session_state.show_details:
                 st.markdown(impact_card, unsafe_allow_html=True)
 
     if st.button("➡️ Open Full Impact Page"):
-        st.session_state["impact_data"] = server_rows.to_dict(orient="records")
+
+        st.session_state["impact_data"] = impact_rows
+        st.session_state["impact_server"] = selected_server
         st.switch_page("pages/impact_page.py")
