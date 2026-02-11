@@ -3,12 +3,10 @@ import os
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+import graphviz
 import streamlit as st
 from db.graph_queries import get_servers, get_impact
 import ai.genai_message as genai_message
-
-st.set_page_config(layout="wide")
-st.title("🚨 Business Impact Dashboard")
 
 # ---------- LOAD SERVERS FROM NEO4J ----------
 servers = get_servers()
@@ -57,11 +55,110 @@ with st.sidebar:
         st.info("System reset. All alerts cleared.")
 
 # ---------- SERVER DASHBOARD ----------
+# st.subheader("🖥️ Business Server Panel")
+
+# servers_list = list(servers)
+
+# # Show 3 servers per row
+# for idx in range(0, len(servers_list), 3):
+
+#     server_row = servers_list[idx:idx + 3]
+#     cols = st.columns(3)
+
+#     for col, server in zip(cols, server_row):
+
+#         is_fault = server == st.session_state.fault_server
+
+#         if is_fault:
+#             bg_color = "#fdecea"
+#             border_color = "#f44336"
+#             text_color = "#b71c1c"
+#         else:
+#             bg_color = "#edf7ed"
+#             border_color = "#2f9936"
+#             text_color = "#2f9936"
+
+#         card = f"""
+#         <div style="
+#             width:100%;
+#             margin:15px 0;
+#             background-color:{bg_color};
+#             border:2px solid {border_color};
+#             border-radius:12px;
+#             height:70px;
+#             display:flex;
+#             align-items:center;
+#             justify-content:center;
+#             color:{text_color};
+#             font-weight:bold;
+#             box-shadow:0 2px 6px rgba(0,0,0,0.1);
+#             font-size:16px;
+#             text-align:center;">
+#             {server}
+#         </div>
+#         """
+
+#         with col:
+#             st.markdown(card, unsafe_allow_html=True)
+
+#             if is_fault:
+#                 if st.button("Show Impact Details", key=f"expand_{server}"):
+#                     st.session_state.show_details = server
+
+# ---------- IMPACT DETAILS ----------
+# if st.session_state.show_details:
+
+#     selected_server = st.session_state.show_details
+
+#     # 🔥 ALWAYS fetch impact first
+#     impact_rows = get_impact(selected_server)
+
+#     # Safety check
+#     if not impact_rows:
+#         st.warning("No impact data found.")
+#         st.stop()
+
+#     st.divider()
+#     st.markdown(f"### ⚠️ Impact Details — {selected_server}")
+
+#     # Show 3 cards per row
+#     for idx in range(0, len(impact_rows), 3):
+
+#         row_cards = impact_rows[idx:idx + 3]
+#         cols_impact = st.columns(3)
+
+#         for col, item in zip(cols_impact, row_cards):
+
+#             impact_card = f"""
+#             <div style="
+#                 background:#fff3cd;
+#                 border-left:6px solid #ff9800;
+#                 padding:12px;
+#                 margin:8px 0;
+#                 border-radius:8px;
+#                 box-shadow:0 2px 4px rgba(0,0,0,0.08);
+#                 min-height:110px;
+#             ">
+#                 <b>📦 Application:</b> {item['application']}<br>
+#                 <b>⚙️ Process:</b> {item['process']}<br>
+#                 <b>🔗 Service:</b> {item['service']}
+#             </div>
+#             """
+
+#             with col:
+#                 st.markdown(impact_card, unsafe_allow_html=True)
+
+#     if st.button("➡️ Open Full Impact Page"):
+
+#         st.session_state["impact_data"] = impact_rows
+#         st.session_state["impact_server"] = selected_server
+#         st.switch_page("pages/impact_page.py")
+
+# ---------- SERVER DASHBOARD Graph/Flowchart Representation ----------
 st.subheader("🖥️ Business Server Panel")
 
 servers_list = list(servers)
 
-# Show 3 servers per row
 for idx in range(0, len(servers_list), 3):
 
     server_row = servers_list[idx:idx + 3]
@@ -101,57 +198,61 @@ for idx in range(0, len(servers_list), 3):
         """
 
         with col:
+
+            # ---------- SERVER CARD ----------
             st.markdown(card, unsafe_allow_html=True)
 
             if is_fault:
+
                 if st.button("Show Impact Details", key=f"expand_{server}"):
                     st.session_state.show_details = server
 
-# ---------- IMPACT DETAILS ----------
-if st.session_state.show_details:
+                # ---------- FLOWCHART BELOW SERVER ----------
+                if st.session_state.show_details == server:
 
-    selected_server = st.session_state.show_details
+                    impact_rows = get_impact(server)
 
-    # 🔥 ALWAYS fetch impact first
-    impact_rows = get_impact(selected_server)
+                    if impact_rows:
 
-    # Safety check
-    if not impact_rows:
-        st.warning("No impact data found.")
-        st.stop()
+                        dot = graphviz.Digraph()
+                        dot.attr(rankdir="TB", nodesep="0.4", ranksep="0.6")
 
-    st.divider()
-    st.markdown(f"### ⚠️ Impact Details — {selected_server}")
+                        # Server node
+                        dot.node(
+                            "server",
+                            server,
+                            shape="box",
+                            style="filled",
+                            fillcolor="#ffcccc",
+                            fontsize="12"
+                        )
 
-    # Show 3 cards per row
-    for idx in range(0, len(impact_rows), 3):
+                        # Arrange apps in multiple rows automatically
+                        for i, item in enumerate(impact_rows):
 
-        row_cards = impact_rows[idx:idx + 3]
-        cols_impact = st.columns(3)
+                            label = f"{item['application']}\n{item['process']}"
 
-        for col, item in zip(cols_impact, row_cards):
+                            node_id = f"app_{i}"
 
-            impact_card = f"""
-            <div style="
-                background:#fff3cd;
-                border-left:6px solid #ff9800;
-                padding:12px;
-                margin:8px 0;
-                border-radius:8px;
-                box-shadow:0 2px 4px rgba(0,0,0,0.08);
-                min-height:110px;
-            ">
-                <b>📦 Application:</b> {item['application']}<br>
-                <b>⚙️ Process:</b> {item['process']}<br>
-                <b>🔗 Service:</b> {item['service']}
-            </div>
-            """
+                            dot.node(
+                                node_id,
+                                label,
+                                shape="circle",
+                                width="0.9",
+                                height="0.9",
+                                fixedsize="true",
+                                fontsize="8",
+                                style="filled",
+                                fillcolor="#fff3cd"
+                            )
 
-            with col:
-                st.markdown(impact_card, unsafe_allow_html=True)
+                            dot.edge("server", node_id)
 
-    if st.button("➡️ Open Full Impact Page"):
+                        st.graphviz_chart(dot, use_container_width=True)
 
-        st.session_state["impact_data"] = impact_rows
-        st.session_state["impact_server"] = selected_server
-        st.switch_page("pages/impact_page.py")
+                        # ---------- IMPACT PAGE BUTTON ----------
+                        if st.button("➡️ Open Full Impact Page", key=f"page_{server}"):
+
+                            st.session_state["impact_data"] = impact_rows
+                            st.session_state["impact_server"] = server
+                            st.switch_page("pages/impact_page.py")

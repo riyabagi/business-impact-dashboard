@@ -14,7 +14,7 @@ def get_servers():
         RETURN s.name AS server
         ORDER BY s.name
         """)
-        return [r["server"] for r in result]
+        return [r["server"] for r in result]    # returns list of server names
 
 def get_impact(server_name):
     """Get all impacts for a specific server"""
@@ -27,7 +27,7 @@ def get_impact(server_name):
                i.service AS service
         """, server=server_name)
 
-        return result.data()
+        return result.data()    # returns list of dicts with keys: application, process, service
 
 def get_all_impacts():
     """Get all impacts in the database"""

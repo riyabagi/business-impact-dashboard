@@ -23,7 +23,7 @@ def load_data(tx, row):
     MERGE (y:Year {year: $year})
     
     MERGE (i:Impact {
-        id: $id
+        id: $id  // Create unique Impact ID, To prevent duplicate Impact nodes
     })
     SET i.impact_year = $year,
         i.server = $server,
